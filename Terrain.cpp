@@ -1,11 +1,11 @@
-//
-//  Terrain.cpp
-//  TerrainGenerator
-//
-//  Copyright (c) 2014  Rajat Arora Jake Harwood. All rights reserved.
-//
+/*
+ *	Terrain.cpp by Rajat Arora and Jake Harwood 
+ *	This is an interatice terrain mesh ranging from 50x50 to 300x300 vertices.
+ *  Terrain using quad polygons that make up 3D surface.
+ *	Initial height values according to Fault Algorithm.
+ */
 
-
+/* OpenGL cross platform inclues */
 #ifndef _OPENGL_
 #define _OPENGL_
 #ifdef __APPLE__
@@ -13,13 +13,13 @@
 #  include <OpenGL/glu.h>
 #  include <GLUT/glut.h>
 #else
-
 #  include <GL/gl.h>
 #  include <GL/glu.h>
 #  include <GL/freeglut.h>
 #endif
 #endif
 
+/* includes header files and libraries */
 #include "Terrain.h"
 #include <stdlib.h>
 #include <math.h>
@@ -27,69 +27,66 @@
 #include <vector>
 
 
-
-//contains the max/min height the terrain will be
+/* contains the max/min height the terrain will be */
 float maxHeight = 50;
 float minHeight = -10;
 
+/* using standard library */
 using namespace std;
 
-//Setter for wireframe mode
+/* Setter for wireframe mode */
 void Terrain::setWireMode(int wMode){
     this->wireMode = wMode;
 }
 
-//Setter for turning on light
+/* Setter for turning on light */
 void Terrain::setLight(bool onoff){
     this->lightOn = onoff;
 }
-//Setter for turning on terrain color
+
+/*Setter for turning on terrain color */
 void Terrain::setColMode(bool cm){
     this->colMode = cm;
 }
 
-//constructor, sets terrain size, and the number of cuts of the field
-
+/* Constructor, sets terrain size, and the number of cuts of the iteration */
 Terrain::Terrain(int const terrainSize, int numberOfCuts){
-    
-    
-    this->terrainSize = terrainSize;
-    this->numberOfCuts = numberOfCuts;
+    this->terrainSize = terrainSize; //50*50 ~ 300*300
+    this->numberOfCuts = numberOfCuts; //
     this->heightMap = new float *[terrainSize]; // dynamic array (size 10) of pointers to int
     this->vertexVects = new float *[terrainSize];
     this->surfaceVects = new float *[terrainSize];
     
+/* each i-th pointer pointing to dynamic array (size 10) of actual int values */
     for (int i = 0; i < terrainSize; ++i) {
         heightMap[i] = new float[terrainSize];
         vertexVects[i] = new float[terrainSize];
-        surfaceVects[i] = new float[terrainSize];
-        // each i-th pointer is now pointing to dynamic array (size 10) of actual int values
-    }
-    
-    
-    
+        surfaceVects[i] = new float[terrainSize];  
+    }   
 }
 
-
-//generate the terrain
+/* generate the terrain by fault algorithm */
 void Terrain::generate() {
-    //set default values to heightmap
+    /* set default values to heightmap */
     for (int x = 0; x < this-> terrainSize; x++) {
         for (int z = 0; z < terrainSize; z++) {
-            heightMap[x][z] = 10;
-            
+            heightMap[x][z] = 10;      
         }
     }
- 	//set the number of iterations to cut
+ 	/* set the number of iterations to cut */
     int iterations = this->terrainSize + 50 + this->numberOfCuts;
     
     
-    //generate the heightmap and store it,
-    //algorithm reference: http://www.lighthouse3d.com/opengl/terrain/index.php?fault
-    
+   /* 
+    *   Generate the heightmap and store it in 2D array
+    *   algorithm reference: http://www.lighthouse3d.com/opengl/terrain/index.php?fault
+    *	The idea of this algorithm is to have zero height then random line 
+	*	which dives terrain in two parts, one side of the line have displaced upwards, 
+	*	wheras the points on the other side displaced downwards.
+    */    
     for (int i = 0; i < iterations; i++) {
         
-        float v = rand();
+        float v = rand(); 
         float a = sinf(v);
         float b = cosf(v);
         float d = sqrtf(2*(terrainSize*terrainSize));
@@ -97,24 +94,22 @@ void Terrain::generate() {
         
         float displacement = 0.9;
         
-        // iterate through each point for the terrain and
-        //determine the height for each point
+        /* iterate through each point for the terrain and determine the height for each point */
         for (int x = 0; x < terrainSize; x++) {
             for (int z = 0; z < terrainSize; z++) {
-                
                 if (a*x + b*z - c > 0)
+                	/* based on the line it cuts, points displaced upwards */
                     if ( (heightMap[x][z] + displacement) < maxHeight){
                         heightMap[x][z] += displacement ;
                     }else{
                         heightMap[x][z] = maxHeight;
                     }
-                
+                    /* points displaced downwards on the other side of the line */
                     else
                         if((heightMap[x][z] - displacement) > minHeight){
                             heightMap[x][z] -= displacement ;
                         }
-            }
-            
+            }        
         }
         displacement += 1;
     }
@@ -122,30 +117,31 @@ void Terrain::generate() {
 
 
 
-//A strut that will be used as a vector
+/* A strut that will be used as a vector */
 struct ve {
     float x;
     float y;
     float z;
-}v;
+};
 
-//will hold our normals, and vectors
+/* normals and vectors for shading and lighting */
 vector<ve> rt;
 vector<ve> k;
 
-//normalize each vector
+/* 
+ * calculates the unit vector in the same direction as the original vector 
+ * If you want to know why We need to calculate normal please read the following
+ * http://www.opengl-tutorial.org/beginners-tutorials/tutorial-8-basic-shading/
+ */
 void normalize() {
-    float m = sqrt((v.x * v.x) + (v.y * v.y) + (v.z *v.z));
+    float m = sqrt((v.x * v.x) + (v.y * v.y) + (v.z *v.z)); 
     v.x = v.x /m;
     v.y = v.y/m;
     v.z =v.z/m;
-    
 }
-
-
-//cross product each point
-//and find the face vector
-//store it into rt
+/* Basic shading calculation, cross product and normals */
+/* Recall that  a X b = ||a|| * ||b|| * sin(angle) n */
+/* calculates cross product for each point, find the face vector and store it into rt */
 void cross() {
    
     v.x = (rt.at(0).y * rt.at(1).z - rt.at(0).z * rt.at(1).y);
@@ -166,13 +162,14 @@ void cross() {
     rt.push_back(v);
 }
 
-
-//This is for color mode.
-//Depending on the height we set a color
-//further up we go, more red, lower, more green
-//returns an array that holds rgb colors
+/* 
+ * The Color Mode function
+ * returns an array holds RGB colors
+ * the lowest height values (green) to hightest height values (red)
+ */
 float* c(float x, float y, float z, float **heightMap) {
-    // rgb colours
+
+    /* different rgb colours values depending on the minimum height and maximum height value */
     float t = 0, t1=1, t2=0;
     if (y <  minHeight * 0.8) {
         
@@ -243,15 +240,14 @@ float* c(float x, float y, float z, float **heightMap) {
     return tn;
 }
 
-
-
-//when we do our cuts, the heights, may not
-//go to our max height. The more cuts we do, the more likely
-//the less, the less likely
-//just in case we find the max height in our heightmap
-//taken from http://mathbits.com/MathBits/CompSci/Arrays/max.htm
+/* 
+ * Function fo find the maximum value in array 
+ * When doing fault algorithm cuts, the height value may not go to maximum height
+ * The more cutes more likely height value go to maximum height
+ * Refference : http://mathbits.com/MathBits/CompSci/Arrays/max.htm
+ */
 void maximumValue(float ** a, int size) {
-    // start with max = first element
+    /* start with max = first element */
     
     float max = a[0][0];
     for (int x = 0; x < size - 1; x++) {
@@ -266,6 +262,10 @@ void maximumValue(float ** a, int size) {
     
 }
 
+/* 
+ * Function fo find the minimum value in array 
+ * Less cuts given less likely go to minimum height
+ */
 void minValue(float ** a, int size) {
     // start with max = first element
     
@@ -282,17 +282,19 @@ void minValue(float ** a, int size) {
     
 }
 
-
-//create our vertex and store in rt
-//then do cross product
-//from there store our cross product vectors for each vector into k.
+/*
+ * OpenGL only does correct shading and lighting if and only if
+ * Normals are calculates correctly.
+ * We need to Normalize vector and face vector using different math 
+ * hence using cross product here
+ * Refference :http://www.opengl-tutorial.org/beginners-tutorials/tutorial-8-basic-shading/
+ */
 void Terrain::vertexNormal(){
-    
+    /* iterate starts*/
     for (int x = 0; x < this->terrainSize-1; x++) {
         for (int z = 0; z < this->terrainSize-1; z++){
             
-            
-            
+            /* create vertex and store in rt for cross product */            
             v.x =x;
             v.y =heightMap[x][z];
             v.z =z;
@@ -311,81 +313,86 @@ void Terrain::vertexNormal(){
             rt.push_back(v);
             cross();
             
-            
             k.push_back(v);
             rt.clear();
             
         }
     }
     
-    //now iterate through our face vectors and normalize them
-    //store into k
+    /* normalize face vectors */
     for (int z = 0; z < k.size(); z++){
         v.x =k.at(z).x;
         v.y =k.at(z).y;
         v.z =k.at(z).z;
         
-        
+        /* call normalize to do the cross product vectors */
         normalize();
         k.at(z) = v;
     }
     
 }
 
+/* 
+ * 2D terrain overview
+ * Display a second GLUUT window and draw a 2D overhead representation of the
+ * terrain in. Each pixel in the view coloured according to the grayscale colours
+ * depending on the different height values
+ */
 
-
-//this does the overview drawing of our terrain
 void Terrain::overviewDraw(){
-   
-    
+	/* using PointSize 5 */
     glPointSize(5);
     
-    //iterate through our height map
-    //draw a point, and depending on the height of the point, set a color
+    /*iterate through our height map */
     for (int x = 0; x < this->terrainSize; x++){
         for (int z = 0; z < this->terrainSize; z++){
                glBegin(GL_POINTS);
-            
+                /* draw a point, and depending on the height of the point, set a color */
                 glColor3f(heightMap[x][z]/10, heightMap[x][z]/10, heightMap[x][z]/10);
-            
-                glVertex2f(x*0.02, z*0.02);
-            
-            
-            
-            
+                glVertex2f(x*0.02, z*0.02);           
             
             glEnd();
             
         }
     }
     
-    
 }
 
-//draw the terrain
+/*
+ * Draw terrain as heightmap ( 2D array of height values)
+ * Once the heightmap is loaded, use openGL quad strips primititives 
+ */
+
 void Terrain::draw() {
 
-    //turn on wireframe mode
+	/* 
+	 * Toggle wirefram mode between three option
+	 * 1. Solid polygons 2. Wirefram Version of the terrain 3. Both solid and wirefram
+	 */
     if (wireMode == 1){
-        glPolygonMode( GL_FRONT_AND_BACK, GL_FILL);
+        glPolygonMode( GL_FRONT_AND_BACK, GL_FILL); //basic GLUT function
     } else if (wireMode == 2) {
         glPolygonMode( GL_FRONT_AND_BACK, GL_LINE);
     } else if (wireMode == 3){
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         
-        //iterate through height map
+		/* 
+		 * using index of the heightmap for every xz vertex, 
+		 * and use the corresponding y value. 
+		 * Colour your terrain according to topographic maps. 
+		 * The lowest parts should be shades of green,
+		 * and higher parts should become progressively more orange/red.
+		 */ 
         for (int x = 0; x < this->terrainSize-1; x++) {
             for (int z = 0; z < this->terrainSize-1; z++) {
                 
-				//draw a quad for each 4 dots on the heightmap
+				/* draw a quad for each 4 dots on the heightmap */
                 glBegin(GL_QUADS);
                 
-                
-                if(heightMap[x][z]>0){
-                    
+                if(heightMap[x][z]>0){                    
                     glColor3f(heightMap[x][z]/maxHeight, heightMap[x][z]/maxHeight, heightMap[x][z]/maxHeight);
                 }else{
-                    glColor3f(0,1,0);
+                    glColor3f(0,1,0); /* green */
                 }
                 
                 glVertex3f(x, heightMap[x][z], z);
@@ -410,15 +417,12 @@ void Terrain::draw() {
                 if(heightMap[x+1][z+1]>0){
                     glColor3f(heightMap[x+1][z+1]/maxHeight, heightMap[x+1][z+1]/maxHeight, heightMap[x+1][z+1]/maxHeight);
                 }else{
-                    glColor3f(1,0,0);
+                    glColor3f(1,0,0); /* red */
                     
                 }
                 glVertex3f(x, heightMap[x][z+1], z+1);
                 
-                glEnd();
-                
-                
-                
+                glEnd();         
                 
             }
             
@@ -426,47 +430,45 @@ void Terrain::draw() {
          glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
         
          }
-    
-	 
-    //generate 2 texture IDs, store them in array "textures"
-    
-    //if color mode is on
+       
+    /* if color mode is on, generate 2 textures */ 
+
     if (colMode == true){
         
-        //if light mode is on, turn on light as requested
+        /* if light mode is on, turn on light as requested */
         if (lightOn == true) {
 
-            //set is material settings
-            //taken from profs notes
+            /* material 1 settings */
+            /* Ambient, Specular, Attenuation and Gamma*/
             float amb[4] = { 0.4, 0.6, 0.3, 1 };
             float diff[4] = { 1, 0, 0, 1 };
             float spec[4] = { 0.3, 0, 1, 1 };
-            
+            /* material 2 settings */
             float m_amb[] = { 0.6, .6, 0.6, 1.0 };
             float m_dif[] = { 0.78, 0.57, 0.11, 1.0 };
             float m_spec[] = { 0.99, 0.91, 0.81, 1.0 };
             float shiny = 27;
             
-            //turn on ambient lighting and set position of light
+            /* turn on ambient lighting and set position of light */
             GLfloat ambientColor[] = { 0.3f, 0.3f, 0.3f, 1.0f };
             glLightModelfv(GL_LIGHT_MODEL_AMBIENT, ambientColor);
             GLfloat lightPos0[] = { terrainSize / 2.0f, maxHeight, terrainSize
                 / 2.0f, terrainSize / 2.0f };
             
-            //set materials
+            /* set materials according to material 2*/
             glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, m_amb);
             glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, m_dif);
             glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, m_spec);
             glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, shiny);
             
-            //set light properties
+            /*set light properties according to material 1*/
             glLightfv(GL_LIGHT0, GL_POSITION, lightPos0);
             glLightfv(GL_LIGHT0, GL_DIFFUSE, diff);
             glLightfv(GL_LIGHT0, GL_AMBIENT, amb);
             glLightfv(GL_LIGHT0, GL_SPECULAR, spec);
             
             
-            // set all the normals
+            /* set all the normals for shading and lighting purpose*/
             for (int x = 0; x < this->terrainSize - 1; x++) {
                 glNormal3f(k.at(x).x, k.at(x).y, k.at(x).z);
                 
@@ -478,15 +480,20 @@ void Terrain::draw() {
             
             for (int z = 0; z < this->terrainSize - 1; z++) {
                 float* temp;
+                /* call maximumValue to get max height */
                 maximumValue(heightMap, terrainSize);
+                /* call minValue to get min height */
                 minValue(heightMap, terrainSize);
+                /* Begin to draw using QUAD */
                 glBegin(GL_QUADS);
-              
                 
-                
-                
-                //get the color for specific terrain height, and
-                //then set color and draw vertex
+				/* 
+				 * using index of the heightmap for every xz vertex, 
+				 * and use the corresponding y value. 
+				 * Colour your terrain according to topographic maps. 
+				 * The lowest parts should be shades of green,
+				 * and higher parts should become progressively more orange/red.
+				 */ 
                 temp = c(x, heightMap[x][z], z, heightMap);
                 glColor3f(temp[0], temp[1], temp[2]);
                 glVertex3f(x, heightMap[x][z], z);
@@ -509,70 +516,77 @@ void Terrain::draw() {
             
         }
 
-        
-        
-        
-    
-      // else if color mode is off
+      /* no textures for materials and lighting while color mode is off */
     } else if (colMode == false){
     
 
     
-    //some light properties
+    /* light setting */
     
     if (lightOn == true){
         
-        //set is material settings
-        //taken from profs notes
+        /* Ambient, Specular, Attenuation and Gamma*/
+       
+    	/* Material 1 */
         float amb[4] = {0.4, 0.6, 0.3, 1};
         float diff[4] = {1,0,0, 1};
         float spec[4] = {0.3,0,1, 1};
     
+    	/* Material 2 */
         float m_amb[] = {0.6, .6, 0.6, 1.0};
         float m_dif[] = {0.78, 0.57, 0.11, 1.0};
         float m_spec[] = {0.99, 0.91, 0.81, 1.0};
         float shiny = 27;
     
-        //turn on ambient lighting and set position of light
+        /* turn on ambient lighting and set position of light */
         GLfloat ambientColor[] = {0.3f, 0.3f, 0.3f, 1.0f};
         glLightModelfv(GL_LIGHT_MODEL_AMBIENT, ambientColor);
+        /* 
+         * Set light position according to terrain size and height values 
+         * Make sure camera is looking at the right position
+         */
         GLfloat lightPos0[] = {terrainSize/2.0f, maxHeight, terrainSize/2.0f, terrainSize/2.0f};
     
     
-        //set materials
+        /* set materials using Material 2 */
         glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, m_amb);
         glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, m_dif);
         glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, m_spec);
         glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, shiny);
     
-        //set light properties
+        /*s et light properties using Material 1 */
         glLightfv(GL_LIGHT0, GL_POSITION, lightPos0);
         glLightfv(GL_LIGHT0, GL_DIFFUSE, diff);
         glLightfv(GL_LIGHT0, GL_AMBIENT, amb);
         glLightfv(GL_LIGHT0, GL_SPECULAR, spec);
     
     
-        // set all the normals
+        /*set all the normals */
         for (int x = 0; x < this->terrainSize-1; x++) {
             glNormal3f(k.at(x).x,k.at(x).y,k.at(x).z);
         
         }
     
     }
-
-    //iterate through height map
+		/* 
+		 * REPEAT
+		 * using index of the heightmap for every xz vertex, 
+		 * and use the corresponding y value. 
+		 * Colour your terrain according to topographic maps. 
+		 * The lowest parts should be shades of green,
+		 * and higher parts should become progressively more orange/red.
+		 */ 
     for (int x = 0; x < this->terrainSize-1; x++) {
         for (int z = 0; z < this->terrainSize-1; z++) {
             
             //draw a quad for each 4 dots on the heightmap
             glBegin(GL_QUADS);
             
-            
             if(heightMap[x][z]>0){
                 
                 glColor3f(heightMap[x][z]/maxHeight, heightMap[x][z]/maxHeight, heightMap[x][z]/maxHeight);
             }else{
-                glColor3f(0,1,0);
+                glColor3f(0,1,0); /* green color*/
             }
             
             glVertex3f(x, heightMap[x][z], z);
@@ -597,33 +611,17 @@ void Terrain::draw() {
             if(heightMap[x+1][z+1]>0){
                 glColor3f(heightMap[x+1][z+1]/maxHeight, heightMap[x+1][z+1]/maxHeight, heightMap[x+1][z+1]/maxHeight);
             }else{
-                glColor3f(1,0,0);
+                glColor3f(1,0,0); /* red color*/
                 
             }
             glVertex3f(x, heightMap[x][z+1], z+1);
             
-            glEnd();
-            
-            
-        
-            
+            glEnd(); /* End of drawing */
+                       
         }
       
       }
         
    }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
 
