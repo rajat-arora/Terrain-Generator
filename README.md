@@ -3,7 +3,7 @@ OpenGl Terrain Generator
 
 A C++ implmentation of the The Fault Algorithm...
 
-##Usage
+## Usage
 cd to folder
 
 make clean
